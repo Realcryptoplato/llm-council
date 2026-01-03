@@ -11,6 +11,7 @@ import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .config import get_council_models, get_chairman_model
 
 app = FastAPI(title="LLM Council API")
 
@@ -34,6 +35,12 @@ class SendMessageRequest(BaseModel):
     content: str
 
 
+class QueryRequest(BaseModel):
+    """Request for one-shot council query (no conversation required)."""
+    question: str
+    include_details: bool = False  # If True, include individual responses and rankings
+
+
 class ConversationMetadata(BaseModel):
     """Conversation metadata for list view."""
     id: str
@@ -54,6 +61,64 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+@app.get("/api/models")
+async def get_models():
+    """Get current council model configuration."""
+    council_models = get_council_models()
+    chairman_model = get_chairman_model()
+
+    return {
+        "council_models": council_models,
+        "chairman_model": chairman_model,
+        "council_count": len(council_models),
+        "vendors": list(set(m.split("/")[0] for m in council_models)),
+    }
+
+
+@app.post("/api/query")
+async def query_council(request: QueryRequest):
+    """
+    One-shot council query - no conversation management required.
+
+    Returns the synthesized final answer from the council.
+    Set include_details=True to also get individual model responses and rankings.
+    """
+    # Run the 3-stage council process
+    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
+        request.question
+    )
+
+    # Check if we got valid results
+    if not stage1_results or all(r.get("response") is None for r in stage1_results):
+        raise HTTPException(
+            status_code=503,
+            detail="All council models failed to respond. Check API key and credits."
+        )
+
+    if not stage3_result or "response" not in stage3_result:
+        raise HTTPException(
+            status_code=503,
+            detail="Chairman model failed to synthesize response."
+        )
+
+    # Build response
+    response = {
+        "answer": stage3_result["response"],
+        "chairman_model": stage3_result["model"],
+    }
+
+    if request.include_details:
+        response["details"] = {
+            "stage1_responses": stage1_results,
+            "stage2_rankings": stage2_results,
+            "stage3_synthesis": stage3_result,
+            "aggregate_rankings": metadata.get("aggregate_rankings", []),
+            "label_to_model": metadata.get("label_to_model", {}),
+        }
+
+    return response
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])

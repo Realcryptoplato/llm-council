@@ -29,6 +29,7 @@ async def query_model(
     payload = {
         "model": model,
         "messages": messages,
+        "max_tokens": 4096,  # Reasonable limit to avoid credit issues
     }
 
     try:
