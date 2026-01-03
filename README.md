@@ -1,5 +1,7 @@
 # LLM Council
 
+> **Fork Note:** This is a fork of [karpathy/llm-council](https://github.com/karpathy/llm-council) with additional features. Original project by [Andrej Karpathy](https://github.com/karpathy).
+
 ![llmcouncil](header.jpg)
 
 The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
@@ -85,3 +87,43 @@ Then open http://localhost:5173 in your browser.
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+
+---
+
+## Fork Additions
+
+This fork adds the following features:
+
+### Dynamic Model Selection
+Models are automatically fetched from OpenRouter API to always use the latest frontier models:
+- OpenAI (latest GPT)
+- Anthropic (Claude Opus/Sonnet)
+- Google (Gemini Pro)
+- xAI (Grok)
+
+Models refresh hourly. Set `USE_DYNAMIC_MODELS=false` in `.env` to use hardcoded fallbacks.
+
+### One-Shot API Endpoint
+Query the council programmatically without conversation management:
+
+```bash
+# Simple query
+curl -X POST http://localhost:8001/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is the best database for real-time apps?"}'
+
+# With full details (individual responses + rankings)
+curl -X POST http://localhost:8001/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "...", "include_details": true}'
+
+# Check current council models
+curl http://localhost:8001/api/models
+```
+
+### Claude Code Integration
+Includes Claude Code slash commands for AI-assisted workflows:
+- `/council <question>` - Query the council from any project
+- `/council-issue <github-url>` - Send a GitHub issue to the council for analysis
+
+See `~/.claude/commands/` for command definitions.
