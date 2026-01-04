@@ -4,126 +4,185 @@
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+Instead of asking a question to a single LLM, group them into your "LLM Council". This repo queries multiple frontier LLMs, has them review and rank each other's work anonymously, and synthesizes a final response from a Chairman LLM.
 
-In a bit more detail, here is what happens when you submit a query:
+## How It Works
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
-
-## Vibe Code Alert
-
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
-
-## Setup
-
-### 1. Install Dependencies
-
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
-
-**Backend:**
-```bash
-uv sync
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 2. Configure API Key
-
-Create a `.env` file in the project root:
-
-```bash
-OPENROUTER_API_KEY=sk-or-v1-...
-```
-
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
-
-### 3. Configure Models (Optional)
-
-Edit `backend/config.py` to customize the council:
-
-```python
-COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
-]
-
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
-```
-
-## Running the Application
-
-**Option 1: Use the start script**
-```bash
-./start.sh
-```
-
-**Option 2: Run manually**
-
-Terminal 1 (Backend):
-```bash
-uv run python -m backend.main
-```
-
-Terminal 2 (Frontend):
-```bash
-cd frontend
-npm run dev
-```
-
-Then open http://localhost:5173 in your browser.
-
-## Tech Stack
-
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
+1. **Stage 1: First opinions** - All LLMs answer independently
+2. **Stage 2: Peer review** - Each LLM ranks the others (anonymized to prevent bias)
+3. **Stage 3: Synthesis** - Chairman LLM compiles the final answer
 
 ---
 
-## Fork Additions
+## Quick Start (CLI - No Server Required)
 
-This fork adds the following features:
+The simplest way to use the council is the standalone CLI script.
 
-### Dynamic Model Selection
-Models are automatically fetched from OpenRouter API to always use the latest frontier models:
-- OpenAI (latest GPT)
-- Anthropic (Claude Opus/Sonnet)
-- Google (Gemini Pro)
-- xAI (Grok)
-
-Models refresh hourly. Set `USE_DYNAMIC_MODELS=false` in `.env` to use hardcoded fallbacks.
-
-### One-Shot API Endpoint
-Query the council programmatically without conversation management:
+### 1. Clone and Configure
 
 ```bash
-# Simple query
+git clone https://github.com/Realcryptoplato/llm-council.git ~/repos/llm-council
+cd ~/repos/llm-council
+
+# Add your OpenRouter API key
+echo "OPENROUTER_API_KEY=sk-or-v1-your-key-here" > .env
+```
+
+Get your API key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+### 2. Run a Query
+
+```bash
+python council_cli.py "What is the best database for real-time apps?"
+```
+
+That's it! No server, no dependencies to install (just Python 3.10+ and httpx).
+
+### Cost Tiers
+
+```bash
+# Budget (~$0.05/query) - uses mini/flash models
+python council_cli.py --tier budget "Your question"
+
+# Balanced (~$0.15/query) - default, good quality
+python council_cli.py --tier balanced "Your question"
+
+# Premium (~$1.50/query) - best models (expensive!)
+python council_cli.py --tier premium "Your question"
+```
+
+| Tier | Cost | Models |
+|------|------|--------|
+| budget | ~$0.05 | gpt-4o-mini, claude-3.5-sonnet, gemini-flash, grok-4.1-fast |
+| balanced | ~$0.15 | gpt-5.2, claude-sonnet-4.5, gemini-3-pro, grok-4.1-fast |
+| premium | ~$1.50 | gpt-5.2-pro, claude-opus-4.5, gemini-3-pro, grok-4 |
+
+### CLI Options
+
+```bash
+python council_cli.py --help
+python council_cli.py --models          # Show available models
+python council_cli.py --json "Question" # Output as JSON
+```
+
+---
+
+## Claude Code Integration
+
+Use the council directly from Claude Code with slash commands:
+
+```bash
+/council What's the best approach to implement caching?
+/council-issue https://github.com/owner/repo/issues/123
+```
+
+### Install Commands
+
+Copy the command files to your Claude Code config:
+
+```bash
+mkdir -p ~/.claude/commands
+cp docs/commands/*.md ~/.claude/commands/
+```
+
+Or manually create them - see the `docs/commands/` directory for templates.
+
+---
+
+## Web UI (Optional)
+
+For a visual interface with conversation history:
+
+### Setup
+
+```bash
+# Install dependencies
+uv sync                    # Python backend
+cd frontend && npm install # React frontend
+
+# Configure
+echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
+```
+
+### Run
+
+```bash
+./start.sh
+# Or manually:
+# Terminal 1: uv run python -m backend.main
+# Terminal 2: cd frontend && npm run dev
+```
+
+Open http://localhost:5173
+
+---
+
+## API Server (Optional)
+
+For programmatic access via HTTP:
+
+```bash
+uv run python -m backend.main  # Starts on port 8001
+```
+
+### Endpoints
+
+```bash
+# Health check
+curl http://localhost:8001/
+
+# Current models
+curl http://localhost:8001/api/models
+
+# Query the council
 curl -X POST http://localhost:8001/api/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the best database for real-time apps?"}'
+  -d '{"question": "Your question here"}'
 
-# With full details (individual responses + rankings)
+# With full details
 curl -X POST http://localhost:8001/api/query \
   -H "Content-Type: application/json" \
   -d '{"question": "...", "include_details": true}'
-
-# Check current council models
-curl http://localhost:8001/api/models
 ```
 
-### Claude Code Integration
-Includes Claude Code slash commands for AI-assisted workflows:
-- `/council <question>` - Query the council from any project
-- `/council-issue <github-url>` - Send a GitHub issue to the council for analysis
+---
 
-See `~/.claude/commands/` for command definitions.
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENROUTER_API_KEY` | (required) | Your OpenRouter API key |
+| `USE_BUDGET_MODELS` | `balanced` | Cost tier: `budget`, `balanced`, `premium` |
+| `USE_DYNAMIC_MODELS` | `true` | Auto-fetch latest models from OpenRouter |
+
+### Example `.env`
+
+```bash
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+USE_BUDGET_MODELS=balanced
+```
+
+---
+
+## Tech Stack
+
+- **CLI:** Python 3.10+, httpx (async HTTP)
+- **Backend:** FastAPI, async httpx, OpenRouter API
+- **Frontend:** React + Vite, react-markdown
+- **Storage:** JSON files in `data/conversations/`
+
+---
+
+## Vibe Code Alert
+
+> *From the original author:*
+>
+> This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side. It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+
+---
+
+## License
+
+This project inherits from the original [karpathy/llm-council](https://github.com/karpathy/llm-council) which did not specify a license. Use at your own discretion.
