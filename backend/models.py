@@ -10,14 +10,38 @@ FRONTIER_VENDORS = ["openai", "anthropic", "google", "x-ai"]
 
 # Model selection preferences per vendor
 # Format: (vendor, include_pattern, exclude_pattern)
-VENDOR_PREFERENCES = {
+# Cost tier options - set via USE_BUDGET_MODELS env var
+# Budget: ~$0.05/query, Balanced: ~$0.15/query, Premium: ~$1.50/query
+import os
+USE_BUDGET_MODELS = os.getenv("USE_BUDGET_MODELS", "balanced").lower()
+
+VENDOR_PREFERENCES_BUDGET = {
     "openai": {
-        "include": ["gpt-5", "gpt-6"],  # Latest GPT series
-        "exclude": ["mini", "codex", "image", "safeguard", "chat"],  # Skip specialized variants
+        "include": ["gpt-4o-mini", "gpt-5-mini"],  # Mini models, very cheap
+        "exclude": ["search", "audio"],
     },
     "anthropic": {
-        "include": ["claude-opus", "claude-sonnet"],  # Top tier Claude models
-        "exclude": [],
+        "include": ["claude-sonnet"],  # Sonnet is great value
+        "exclude": ["opus"],
+    },
+    "google": {
+        "include": ["gemini-3-flash", "gemini-2.5-flash"],  # Flash models
+        "exclude": ["lite", "image", "nano", "exp"],
+    },
+    "x-ai": {
+        "include": ["grok-4"],  # Fast variants are cheap
+        "exclude": ["mini", "code"],
+    },
+}
+
+VENDOR_PREFERENCES_BALANCED = {
+    "openai": {
+        "include": ["gpt-5.2", "gpt-4o"],  # Standard GPT-5.2 (NOT pro), or GPT-4o
+        "exclude": ["mini", "codex", "image", "safeguard", "pro", "extended", "search", "audio", "chat"],
+    },
+    "anthropic": {
+        "include": ["claude-sonnet"],  # Sonnet 4.5 is excellent and cheaper than Opus
+        "exclude": ["opus"],
     },
     "google": {
         "include": ["gemini-3-pro", "gemini-4"],  # Pro tier Gemini
@@ -25,9 +49,35 @@ VENDOR_PREFERENCES = {
     },
     "x-ai": {
         "include": ["grok-4", "grok-5"],  # Latest Grok
-        "exclude": ["mini"],  # grok-4.1-fast is actually their latest flagship
+        "exclude": ["mini", "code"],
     },
 }
+
+VENDOR_PREFERENCES_PREMIUM = {
+    "openai": {
+        "include": ["gpt-5.2-pro", "gpt-6"],  # Top tier (expensive!)
+        "exclude": ["mini", "codex", "image", "safeguard", "chat"],
+    },
+    "anthropic": {
+        "include": ["claude-opus"],  # Opus is the best
+        "exclude": [],
+    },
+    "google": {
+        "include": ["gemini-3-pro", "gemini-4"],
+        "exclude": ["flash", "image", "nano"],
+    },
+    "x-ai": {
+        "include": ["grok-4", "grok-5"],
+        "exclude": ["mini", "fast"],  # Non-fast for premium
+    },
+}
+
+# Select preferences based on tier
+VENDOR_PREFERENCES = {
+    "budget": VENDOR_PREFERENCES_BUDGET,
+    "balanced": VENDOR_PREFERENCES_BALANCED,
+    "premium": VENDOR_PREFERENCES_PREMIUM,
+}.get(USE_BUDGET_MODELS, VENDOR_PREFERENCES_BALANCED)
 
 # Cache TTL in seconds (1 hour)
 CACHE_TTL = 3600
